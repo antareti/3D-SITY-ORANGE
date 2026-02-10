@@ -66,7 +66,7 @@
         const renderScene = new THREE.RenderPass(scene, camera);
         const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         bloomPass.threshold = 0.2;
-        bloomPass.strength = 1.2; // Сила свечения
+        bloomPass.strength = 1.2; 
         bloomPass.radius = 0.1;
 
         const composer = new THREE.EffectComposer(renderer);
@@ -77,7 +77,9 @@
         const ambient = new THREE.AmbientLight(0x404040, 0.5);
         scene.add(ambient);
 
-        // --- КАПОТ МАШИНЫ ---
+        // --- МАШИНА (КАПОТ И ФАРЫ) ---
+        const hoodGroup = new THREE.Group();
+        
         const hoodGeo = new THREE.BoxGeometry(3.5, 0.1, 4);
         const hoodMat = new THREE.MeshStandardMaterial({ 
             color: 0x001133, 
@@ -87,8 +89,34 @@
             emissiveIntensity: 0.2
         });
         const hood = new THREE.Mesh(hoodGeo, hoodMat);
-        hood.position.set(0, -0.8, -1.5);
-        camera.add(hood);
+        hoodGroup.add(hood);
+
+        // ФАРЫ (Геометрия)
+        const lightBoxGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
+        const lightBoxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        
+        const leftLight = new THREE.Mesh(lightBoxGeo, lightBoxMat);
+        leftLight.position.set(-1.2, 0.1, -2);
+        hoodGroup.add(leftLight);
+
+        const rightLight = new THREE.Mesh(lightBoxGeo, lightBoxMat);
+        rightLight.position.set(1.2, 0.1, -2);
+        hoodGroup.add(rightLight);
+
+        // СВЕТ ИЗ ФАР (Spotlights)
+        const createHeadlight = (x) => {
+            const spotLight = new THREE.SpotLight(0xffffff, 10, 40, Math.PI/6, 0.5, 1);
+            spotLight.position.set(x, 0.1, -2);
+            spotLight.target.position.set(x, -0.5, -15);
+            hoodGroup.add(spotLight);
+            hoodGroup.add(spotLight.target);
+            return spotLight;
+        };
+        createHeadlight(-1.2);
+        createHeadlight(1.2);
+
+        hoodGroup.position.set(0, -0.8, -1.5);
+        camera.add(hoodGroup);
         scene.add(camera);
 
         // --- ЗВЕЗДНОЕ НЕБО ---
@@ -126,15 +154,15 @@
         const grid = new THREE.GridHelper(gridSize * 2, 80, 0x00ffff, 0x330033);
         scene.add(grid);
 
-        // --- ТРАФИК (ПРОЛЕТАЮЩИЕ ОГНИ) ---
-        const lights = [];
+        // --- ТРАФИК ---
+        const trafficLights = [];
         for(let i=0; i<40; i++) {
             const lightGeo = new THREE.BoxGeometry(0.2, 0.2, 5);
             const lightMat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x00ffff : 0xff00ff });
             const light = new THREE.Mesh(lightGeo, lightMat);
             light.position.set((Math.random()-0.5)*100, 1, (Math.random()-0.5)*gridSize);
             scene.add(light);
-            lights.push(light);
+            trafficLights.push(light);
         }
 
         // --- ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
@@ -184,10 +212,8 @@
             requestAnimationFrame(animate);
 
             if (document.pointerLockElement) {
-                // Плавное вращение
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
 
-                // Расчет вектора направления
                 const dir = new THREE.Vector3();
                 if (moveFwd) dir.z -= 1;
                 if (moveBwd) dir.z += 1;
@@ -195,29 +221,24 @@
                 if (moveR) dir.x += 1;
 
                 dir.normalize().applyQuaternion(camera.quaternion);
-                dir.y = 0; // Машина не летает вверх
+                dir.y = 0;
 
-                // Применяем ускорение
                 if (dir.length() > 0) {
                     velocity.addScaledVector(dir, acceleration);
                 }
                 
-                // Физика (трение)
                 velocity.multiplyScalar(friction);
                 camera.position.add(velocity);
-                camera.position.y = 2; // Фиксация высоты
+                camera.position.y = 2;
 
-                // Эффект наклона при повороте
                 let targetTilt = 0;
                 if (moveL) targetTilt = 0.08;
                 if (moveR) targetTilt = -0.08;
                 camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, targetTilt, 0.1);
 
-                // Обновление спидометра
                 currentSpeed = Math.round(velocity.length() * 500);
                 spdElem.innerText = `SPD: ${currentSpeed} KM/H`;
 
-                // Бесконечный город
                 buildings.forEach(b => {
                     if (b.position.x - camera.position.x > gridSize / 2) b.position.x -= gridSize;
                     if (b.position.x - camera.position.x < -gridSize / 2) b.position.x += gridSize;
@@ -225,15 +246,14 @@
                     if (b.position.z - camera.position.z < -gridSize / 2) b.position.z += gridSize;
                 });
 
-                // Движение трафика
-                lights.forEach(l => {
+                trafficLights.forEach(l => {
                     l.position.z += 2;
                     if (l.position.z - camera.position.z > gridSize / 2) l.position.z -= gridSize;
                 });
 
                 grid.position.x = Math.floor(camera.position.x / 10) * 10;
                 grid.position.z = Math.floor(camera.position.z / 10) * 10;
-                stars.position.copy(camera.position); // Звезды всегда далеко
+                stars.position.copy(camera.position);
             }
             
             composer.render();
