@@ -62,6 +62,11 @@
         renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
+        // --- ТЕКСТУРЫ ---
+        const textureLoader = new THREE.TextureLoader();
+        const buildingTexture = textureLoader.load('1.png');
+        buildingTexture.wrapS = buildingTexture.wrapT = THREE.RepeatWrapping;
+
         // --- ПОСТОБРАБОТКА (BLOOM) ---
         const renderScene = new THREE.RenderPass(scene, camera);
         const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
@@ -91,7 +96,6 @@
         const hood = new THREE.Mesh(hoodGeo, hoodMat);
         hoodGroup.add(hood);
 
-        // ФАРЫ (Геометрия)
         const lightBoxGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
         const lightBoxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         
@@ -103,7 +107,6 @@
         rightLight.position.set(1.2, 0.1, -2);
         hoodGroup.add(rightLight);
 
-        // СВЕТ ИЗ ФАР (Spotlights)
         const createHeadlight = (x) => {
             const spotLight = new THREE.SpotLight(0xffffff, 10, 40, Math.PI/6, 0.5, 1);
             spotLight.position.set(x, 0.1, -2);
@@ -138,10 +141,12 @@
         for (let i = 0; i < 600; i++) {
             const h = Math.random() * 40 + 5;
             const w = Math.random() * 5 + 3;
+            
             const material = new THREE.MeshStandardMaterial({
-                color: 0x020202,
+                map: buildingTexture,
+                color: 0xffffff,
                 emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
-                emissiveIntensity: Math.random() * 0.8
+                emissiveIntensity: Math.random() * 0.4
             });
 
             const building = new THREE.Mesh(boxGeo, material);
