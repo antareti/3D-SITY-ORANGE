@@ -30,13 +30,16 @@
         MOUSE — ОБЗОР
     </div>
 
+    <audio id="bgMusic" loop>
+        <source src="run.mp3" type="audio/mpeg">
+    </audio>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
         // --- ИНИЦИАЛИЗАЦИЯ ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
-        // Плотный черный туман, чтобы город плавно появлялся из тьмы
         scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -45,21 +48,19 @@
         document.body.appendChild(renderer.domElement);
 
         // --- ОСВЕЩЕНИЕ ---
-        const ambient = new THREE.AmbientLight(0xff6600, 0.1); // Слабая оранжевая подсветка
+        const ambient = new THREE.AmbientLight(0xff6600, 0.1);
         scene.add(ambient);
 
-        const sun = new THREE.PointLight(0xff6600, 2, 100); // Оранжевый свет от игрока
+        const sun = new THREE.PointLight(0xff6600, 2, 100);
         scene.add(sun);
 
         // --- ГЕНЕРАЦИЯ ОБЪЕКТОВ ---
         const buildings = [];
-        const gridSize = 400; // Размер зоны видимости
-        const buildingCount = 500; // Количество зданий в "обойме"
-
+        const gridSize = 400;
+        const buildingCount = 500;
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
         for (let i = 0; i < buildingCount; i++) {
-            // Чёрный материал с оранжевым контуром (эмиссия)
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0x050505,
                 emissive: 0xff3300,
@@ -67,33 +68,31 @@
             });
 
             const building = new THREE.Mesh(boxGeo, material);
-            
-            // Рандомные размеры
             const h = Math.random() * 30 + 5;
             const w = Math.random() * 4 + 2;
             building.scale.set(w, h, w);
-
-            // Рандомная начальная позиция
-            building.position.set(
-                (Math.random() - 0.5) * gridSize,
-                h / 2,
-                (Math.random() - 0.5) * gridSize
-            );
-
+            building.position.set((Math.random() - 0.5) * gridSize, h / 2, (Math.random() - 0.5) * gridSize);
             scene.add(building);
             buildings.push(building);
         }
 
-        // Оранжевая сетка пола
         const grid = new THREE.GridHelper(gridSize * 2, 60, 0xff6600, 0x221100);
         scene.add(grid);
 
-        // --- УПРАВЛЕНИЕ ---
+        // --- УПРАВЛЕНИЕ И МУЗЫКА ---
         let moveFwd = false, moveBwd = false, moveL = false, moveR = false;
         let yaw = 0, pitch = 0;
         
         const ui = document.getElementById('ui');
-        ui.addEventListener('click', () => document.body.requestPointerLock());
+        const music = document.getElementById('bgMusic');
+
+        ui.addEventListener('click', () => {
+            document.body.requestPointerLock();
+            
+            // Запуск музыки при первом клике
+            music.volume = 0.5;
+            music.play().catch(err => console.log("Музыка заблокирована браузером:", err));
+        });
 
         document.addEventListener('pointerlockchange', () => {
             ui.style.display = document.pointerLockElement ? 'none' : 'block';
@@ -108,16 +107,15 @@
         });
 
         const onKey = (val) => (e) => {
-            const code = e.code;
-            if (code === 'KeyW') moveFwd = val;
-            if (code === 'KeyS') moveBwd = val;
-            if (code === 'KeyA') moveL = val;
-            if (code === 'KeyD') moveR = val;
+            if (e.code === 'KeyW') moveFwd = val;
+            if (e.code === 'KeyS') moveBwd = val;
+            if (e.code === 'KeyA') moveL = val;
+            if (e.code === 'KeyD') moveR = val;
         };
         document.addEventListener('keydown', onKey(true));
         document.addEventListener('keyup', onKey(false));
 
-        // --- ГЛАВНЫЙ ЦИКЛ (ЛОГИКА БЕСКОНЕЧНОСТИ) ---
+        // --- ГЛАВНЫЙ ЦИКЛ ---
         camera.position.set(0, 2, 0);
         const speed = 0.6;
 
@@ -126,7 +124,6 @@
 
             if (document.pointerLockElement) {
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
-
                 const dir = new THREE.Vector3();
                 if (moveFwd) dir.z -= 1;
                 if (moveBwd) dir.z += 1;
@@ -135,30 +132,21 @@
                 
                 dir.normalize().applyQuaternion(camera.quaternion);
                 camera.position.addScaledVector(dir, speed);
-                camera.position.y = 2; // Держим уровень глаз
-                
-                // Перемещаем свет вместе с камерой
+                camera.position.y = 2;
                 sun.position.copy(camera.position);
 
-                // МАГИЯ БЕСКОНЕЧНОСТИ:
-                // Если здание слишком далеко позади, переносим его вперед
                 buildings.forEach(b => {
-                    // Проверка по оси X
                     if (b.position.x - camera.position.x > gridSize / 2) b.position.x -= gridSize;
                     if (b.position.x - camera.position.x < -gridSize / 2) b.position.x += gridSize;
-                    // Проверка по оси Z
                     if (b.position.z - camera.position.z > gridSize / 2) b.position.z -= gridSize;
                     if (b.position.z - camera.position.z < -gridSize / 2) b.position.z += gridSize;
                 });
 
-                // Сетка пола тоже следует за нами (создает эффект бесконечного покрытия)
                 grid.position.x = Math.floor(camera.position.x / 10) * 10;
                 grid.position.z = Math.floor(camera.position.z / 10) * 10;
             }
-
             renderer.render(scene, camera);
         }
-
         animate();
 
         window.addEventListener('resize', () => {
