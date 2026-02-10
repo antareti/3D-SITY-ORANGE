@@ -59,81 +59,61 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.LinearToneMapping; // Изменено для лучшей видимости текстур
+        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        // --- ТЕКСТУРЫ ---
+        // --- ЗАГРУЗКА ТЕКСТУРЫ ---
         const textureLoader = new THREE.TextureLoader();
-        const buildingTexture = textureLoader.load('1.png');
-        buildingTexture.wrapS = buildingTexture.wrapT = THREE.RepeatWrapping;
+        const bTex = textureLoader.load('1.png', (tex) => {
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(1, 2); // Повторить картинку 2 раза по высоте здания
+        });
 
-        // --- ПОСТОБРАБОТКА (BLOOM) ---
+        // --- ПОСТОБРАБОТКА ---
         const renderScene = new THREE.RenderPass(scene, camera);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.2;
-        bloomPass.strength = 1.0; // Чуть меньше свечения, чтобы видеть детали
-        bloomPass.radius = 0.1;
-
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
+        
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
         // --- ОСВЕЩЕНИЕ ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8); // Увеличен общий свет
-        scene.add(ambient);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- МАШИНА (КАПОТ И ФАРЫ) ---
+        // --- МАШИНА ---
         const hoodGroup = new THREE.Group();
-        
-        const hoodGeo = new THREE.BoxGeometry(3.5, 0.1, 4);
-        const hoodMat = new THREE.MeshStandardMaterial({ 
-            color: 0x001133, 
-            metalness: 1, 
-            roughness: 0.1,
-            emissive: 0x0022ff,
-            emissiveIntensity: 0.2
-        });
-        const hood = new THREE.Mesh(hoodGeo, hoodMat);
+        const hood = new THREE.Mesh(
+            new THREE.BoxGeometry(3.5, 0.1, 4),
+            new THREE.MeshStandardMaterial({ color: 0x001133, metalness: 1, roughness: 0.1, emissive: 0x0022ff, emissiveIntensity: 0.2 })
+        );
         hoodGroup.add(hood);
 
-        const lightBoxGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
-        const lightBoxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        
-        const leftLight = new THREE.Mesh(lightBoxGeo, lightBoxMat);
-        leftLight.position.set(-1.2, 0.1, -2);
-        hoodGroup.add(leftLight);
+        const lightGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
+        const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const l1 = new THREE.Mesh(lightGeo, lightMat); l1.position.set(-1.2, 0.1, -2); hoodGroup.add(l1);
+        const l2 = new THREE.Mesh(lightGeo, lightMat); l2.position.set(1.2, 0.1, -2); hoodGroup.add(l2);
 
-        const rightLight = new THREE.Mesh(lightBoxGeo, lightBoxMat);
-        rightLight.position.set(1.2, 0.1, -2);
-        hoodGroup.add(rightLight);
-
-        const createHeadlight = (x) => {
-            const spotLight = new THREE.SpotLight(0xffffff, 15, 50, Math.PI/6, 0.5, 1);
-            spotLight.position.set(x, 0.1, -2);
-            spotLight.target.position.set(x, -0.5, -15);
-            hoodGroup.add(spotLight);
-            hoodGroup.add(spotLight.target);
-            return spotLight;
+        const createSpot = (x) => {
+            const s = new THREE.SpotLight(0xffffff, 10, 50, Math.PI/6, 0.5, 1);
+            s.position.set(x, 0.1, -2);
+            s.target.position.set(x, -0.5, -15);
+            hoodGroup.add(s); hoodGroup.add(s.target);
         };
-        createHeadlight(-1.2);
-        createHeadlight(1.2);
+        createSpot(-1.2); createSpot(1.2);
 
         hoodGroup.position.set(0, -0.8, -1.5);
         camera.add(hoodGroup);
         scene.add(camera);
 
-        // --- ЗВЕЗДНОЕ НЕБО ---
-        const starGeo = new THREE.BufferGeometry();
+        // --- ЗВЕЗДЫ ---
         const starCoords = [];
-        for (let i = 0; i < 3000; i++) {
-            starCoords.push((Math.random() - 0.5) * 1000, Math.random() * 500, (Math.random() - 0.5) * 1000);
-        }
+        for (let i = 0; i < 3000; i++) starCoords.push((Math.random()-0.5)*1000, Math.random()*500, (Math.random()-0.5)*1000);
+        const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, transparent: true });
-        const stars = new THREE.Points(starGeo, starMat);
+        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.8 }));
         scene.add(stars);
 
-        // --- ГЕНЕРАЦИЯ ГОРОДА ---
+        // --- ГОРОД ---
         const buildings = [];
         const gridSize = 500;
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -141,22 +121,16 @@
         for (let i = 0; i < 600; i++) {
             const h = Math.random() * 40 + 5;
             const w = Math.random() * 5 + 3;
-            
-            // Клонируем текстуру для каждого здания, чтобы настроить повторение под высоту
-            const tex = buildingTexture.clone();
-            tex.needsUpdate = true;
-            tex.repeat.set(1, h / 5); // Повторять картинку каждые 5 единиц высоты
-
-            const material = new THREE.MeshStandardMaterial({
-                map: tex,
-                color: 0xffffff, // Белый цвет, чтобы не искажать картинку
+            const buildingMat = new THREE.MeshStandardMaterial({
+                map: bTex,
+                color: 0xffffff,
                 emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
-                emissiveIntensity: 0.2 // Небольшое свечение по краям
+                emissiveIntensity: 0.3
             });
 
-            const building = new THREE.Mesh(boxGeo, material);
+            const building = new THREE.Mesh(boxGeo, buildingMat);
             building.scale.set(w, h, w);
-            building.position.set((Math.random() - 0.5) * gridSize, h / 2, (Math.random() - 0.5) * gridSize);
+            building.position.set((Math.random()-0.5)*gridSize, h/2, (Math.random()-0.5)*gridSize);
             scene.add(building);
             buildings.push(building);
         }
@@ -165,117 +139,68 @@
         scene.add(grid);
 
         // --- ТРАФИК ---
-        const trafficLights = [];
+        const tLights = [];
         for(let i=0; i<40; i++) {
-            const lightGeo = new THREE.BoxGeometry(0.2, 0.2, 5);
-            const lightMat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x00ffff : 0xff00ff });
-            const light = new THREE.Mesh(lightGeo, lightMat);
-            light.position.set((Math.random()-0.5)*100, 1, (Math.random()-0.5)*gridSize);
-            scene.add(light);
-            trafficLights.push(light);
+            const l = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,5), new THREE.MeshBasicMaterial({color: Math.random()>0.5?0x00ffff:0xff00ff}));
+            l.position.set((Math.random()-0.5)*100, 1, (Math.random()-0.5)*gridSize);
+            scene.add(l); tLights.push(l);
         }
 
-        // --- ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
+        // --- ЛОГИКА ---
         let moveFwd = false, moveBwd = false, moveL = false, moveR = false;
-        let yaw = 0, pitch = 0;
-        let velocity = new THREE.Vector3();
-        let acceleration = 0.02;
-        let friction = 0.96;
-        let currentSpeed = 0;
+        let yaw = 0, pitch = 0, velocity = new THREE.Vector3();
+        const ui = document.getElementById('ui'), spdElem = document.getElementById('speedometer'), music = document.getElementById('bgMusic');
 
-        const ui = document.getElementById('ui');
-        const spdElem = document.getElementById('speedometer');
-        const music = document.getElementById('bgMusic');
-
-        // --- УПРАВЛЕНИЕ ---
-        ui.addEventListener('click', () => {
-            document.body.requestPointerLock();
-            music.volume = 0.4;
-            music.play().catch(() => {});
-        });
-
-        document.addEventListener('pointerlockchange', () => {
-            ui.style.display = document.pointerLockElement ? 'none' : 'block';
-        });
-
+        ui.addEventListener('click', () => { document.body.requestPointerLock(); music.play().catch(()=>{}); });
+        document.addEventListener('pointerlockchange', () => ui.style.display = document.pointerLockElement ? 'none' : 'block');
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement) {
-                yaw -= e.movementX * 0.002;
-                pitch -= e.movementY * 0.002;
+                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
                 pitch = Math.max(-Math.PI/4, Math.min(Math.PI/4, pitch));
             }
         });
 
-        const onKey = (val) => (e) => {
-            if (e.code === 'KeyW') moveFwd = val;
-            if (e.code === 'KeyS') moveBwd = val;
-            if (e.code === 'KeyA') moveL = val;
-            if (e.code === 'KeyD') moveR = val;
+        const onKey = (v) => (e) => {
+            if (e.code==='KeyW') moveFwd=v; if (e.code==='KeyS') moveBwd=v;
+            if (e.code==='KeyA') moveL=v; if (e.code==='KeyD') moveR=v;
         };
-        document.addEventListener('keydown', onKey(true));
-        document.addEventListener('keyup', onKey(false));
-
-        // --- ГЛАВНЫЙ ЦИКЛ ---
-        camera.position.set(0, 2, 0);
+        document.addEventListener('keydown', onKey(true)); document.addEventListener('keyup', onKey(false));
 
         function animate() {
             requestAnimationFrame(animate);
-
             if (document.pointerLockElement) {
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
-
                 const dir = new THREE.Vector3();
-                if (moveFwd) dir.z -= 1;
-                if (moveBwd) dir.z += 1;
-                if (moveL) dir.x -= 1;
-                if (moveR) dir.x += 1;
+                if (moveFwd) dir.z -= 1; if (moveBwd) dir.z += 1;
+                if (moveL) dir.x -= 1; if (moveR) dir.x += 1;
+                dir.normalize().applyQuaternion(camera.quaternion); dir.y = 0;
 
-                dir.normalize().applyQuaternion(camera.quaternion);
-                dir.y = 0;
+                if (dir.length() > 0) velocity.addScaledVector(dir, 0.02);
+                velocity.multiplyScalar(0.96);
+                camera.position.add(velocity); camera.position.y = 2;
 
-                if (dir.length() > 0) {
-                    velocity.addScaledVector(dir, acceleration);
-                }
-                
-                velocity.multiplyScalar(friction);
-                camera.position.add(velocity);
-                camera.position.y = 2;
-
-                let targetTilt = 0;
-                if (moveL) targetTilt = 0.08;
-                if (moveR) targetTilt = -0.08;
+                let targetTilt = moveL ? 0.08 : (moveR ? -0.08 : 0);
                 camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, targetTilt, 0.1);
-
-                currentSpeed = Math.round(velocity.length() * 500);
-                spdElem.innerText = `SPD: ${currentSpeed} KM/H`;
+                spdElem.innerText = `SPD: ${Math.round(velocity.length()*500)} KM/H`;
 
                 buildings.forEach(b => {
-                    if (b.position.x - camera.position.x > gridSize / 2) b.position.x -= gridSize;
-                    if (b.position.x - camera.position.x < -gridSize / 2) b.position.x += gridSize;
-                    if (b.position.z - camera.position.z > gridSize / 2) b.position.z -= gridSize;
-                    if (b.position.z - camera.position.z < -gridSize / 2) b.position.z += gridSize;
+                    if (b.position.x - camera.position.x > 250) b.position.x -= 500;
+                    if (b.position.x - camera.position.x < -250) b.position.x += 500;
+                    if (b.position.z - camera.position.z > 250) b.position.z -= 500;
+                    if (b.position.z - camera.position.z < -250) b.position.z += 500;
                 });
-
-                trafficLights.forEach(l => {
-                    l.position.z += 2;
-                    if (l.position.z - camera.position.z > gridSize / 2) l.position.z -= gridSize;
+                tLights.forEach(l => {
+                    l.position.z += 2; if (l.position.z - camera.position.z > 250) l.position.z -= 500;
                 });
-
-                grid.position.x = Math.floor(camera.position.x / 10) * 10;
-                grid.position.z = Math.floor(camera.position.z / 10) * 10;
+                grid.position.set(Math.floor(camera.position.x/10)*10, 0, Math.floor(camera.position.z/10)*10);
                 stars.position.copy(camera.position);
             }
-            
             composer.render();
         }
-        
         animate();
-
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>
