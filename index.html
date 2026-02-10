@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Infinite Neon City Driving</title>
+    <title>Infinite Neon City Driving - Blue Car</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
         #ui {
@@ -54,27 +54,21 @@
         const sun = new THREE.PointLight(0xff6600, 2, 100);
         scene.add(sun);
 
-        // --- КАПОТ МАШИНЫ (НОВОЕ) ---
-        // Создаем геометрию капота (просто сплюснутый куб)
+        // --- КАПОТ МАШИНЫ (ИЗМЕНЕН ЦВЕТ) ---
         const hoodGeo = new THREE.BoxGeometry(3, 0.1, 3.5);
-        // Материал - темный металл, отражающий оранжевый свет
-        const hoodMat = new THREE.MeshStandardMaterial({ 
-            color: 0x0a0a0a, 
-            metalness: 0.9, 
+        // Материал - синий металл
+        const hoodMat = new THREE.MeshStandardMaterial({
+            color: 0x0033cc, // Глубокий синий цвет
+            metalness: 0.9,
             roughness: 0.2,
-            emissive: 0x110500 // Едва заметное свечение
+            emissive: 0x000033 // Едва заметное синее свечение
         });
         const hood = new THREE.Mesh(hoodGeo, hoodMat);
 
-        // Позиционируем капот относительно камеры:
-        // Сдвигаем вниз (y) и вперед (z) от глаз игрока
         hood.position.set(0, -0.7, -2.2);
-        // Немного наклоняем вниз
         hood.rotation.x = -Math.PI / 16;
 
-        // ВАЖНО: Прикрепляем капот к камере, чтобы он двигался вместе с ней
         camera.add(hood);
-        // Добавляем камеру (вместе с капотом) в сцену, чтобы на капот падал свет
         scene.add(camera);
 
 
@@ -85,10 +79,10 @@
         const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
         for (let i = 0; i < buildingCount; i++) {
-            const material = new THREE.MeshStandardMaterial({ 
+            const material = new THREE.MeshStandardMaterial({
                 color: 0x050505,
                 emissive: 0xff3300,
-                emissiveIntensity: Math.random() * 0.5 
+                emissiveIntensity: Math.random() * 0.5
             });
 
             const building = new THREE.Mesh(boxGeo, material);
@@ -106,7 +100,7 @@
         // --- УПРАВЛЕНИЕ И МУЗЫКА ---
         let moveFwd = false, moveBwd = false, moveL = false, moveR = false;
         let yaw = 0, pitch = 0;
-        
+
         const ui = document.getElementById('ui');
         const music = document.getElementById('bgMusic');
 
@@ -151,7 +145,7 @@
                 if (moveBwd) dir.z += 1;
                 if (moveL) dir.x -= 1;
                 if (moveR) dir.x += 1;
-                
+
                 dir.normalize().applyQuaternion(camera.quaternion);
                 camera.position.addScaledVector(dir, speed);
                 camera.position.y = 2;
