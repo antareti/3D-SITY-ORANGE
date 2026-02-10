@@ -59,7 +59,7 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMapping = THREE.LinearToneMapping; // Изменено для лучшей видимости текстур
         document.body.appendChild(renderer.domElement);
 
         // --- ТЕКСТУРЫ ---
@@ -69,9 +69,9 @@
 
         // --- ПОСТОБРАБОТКА (BLOOM) ---
         const renderScene = new THREE.RenderPass(scene, camera);
-        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         bloomPass.threshold = 0.2;
-        bloomPass.strength = 1.2; 
+        bloomPass.strength = 1.0; // Чуть меньше свечения, чтобы видеть детали
         bloomPass.radius = 0.1;
 
         const composer = new THREE.EffectComposer(renderer);
@@ -79,7 +79,7 @@
         composer.addPass(bloomPass);
 
         // --- ОСВЕЩЕНИЕ ---
-        const ambient = new THREE.AmbientLight(0x404040, 0.5);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8); // Увеличен общий свет
         scene.add(ambient);
 
         // --- МАШИНА (КАПОТ И ФАРЫ) ---
@@ -108,7 +108,7 @@
         hoodGroup.add(rightLight);
 
         const createHeadlight = (x) => {
-            const spotLight = new THREE.SpotLight(0xffffff, 10, 40, Math.PI/6, 0.5, 1);
+            const spotLight = new THREE.SpotLight(0xffffff, 15, 50, Math.PI/6, 0.5, 1);
             spotLight.position.set(x, 0.1, -2);
             spotLight.target.position.set(x, -0.5, -15);
             hoodGroup.add(spotLight);
@@ -142,11 +142,16 @@
             const h = Math.random() * 40 + 5;
             const w = Math.random() * 5 + 3;
             
+            // Клонируем текстуру для каждого здания, чтобы настроить повторение под высоту
+            const tex = buildingTexture.clone();
+            tex.needsUpdate = true;
+            tex.repeat.set(1, h / 5); // Повторять картинку каждые 5 единиц высоты
+
             const material = new THREE.MeshStandardMaterial({
-                map: buildingTexture,
-                color: 0xffffff,
+                map: tex,
+                color: 0xffffff, // Белый цвет, чтобы не искажать картинку
                 emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
-                emissiveIntensity: Math.random() * 0.4
+                emissiveIntensity: 0.2 // Небольшое свечение по краям
             });
 
             const building = new THREE.Mesh(boxGeo, material);
