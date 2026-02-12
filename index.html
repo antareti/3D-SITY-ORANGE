@@ -62,12 +62,17 @@
         renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        // --- ЗАГРУЗКА ТЕКСТУРЫ ---
+        // --- ЗАГРУЗКА ТЕКСТУР ---
         const textureLoader = new THREE.TextureLoader();
+        
+        // Текстура зданий
         const bTex = textureLoader.load('1.png', (tex) => {
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(1, 2); // Повторить картинку 2 раза по высоте здания
+            tex.repeat.set(1, 2);
         });
+
+        // Текстура капота (a.png)
+        const hoodTexture = textureLoader.load('a.png');
 
         // --- ПОСТОБРАБОТКА ---
         const renderScene = new THREE.RenderPass(scene, camera);
@@ -80,14 +85,27 @@
         // --- ОСВЕЩЕНИЕ ---
         scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- МАШИНА ---
+        // --- МАШИНА (С КАПОТОМ a.png) ---
         const hoodGroup = new THREE.Group();
+        
+        // Создаем массив материалов для каждой стороны куба капота
+        // 0: right, 1: left, 2: top (наша картинка), 3: bottom, 4: front, 5: back
+        const hoodMaterials = [
+            new THREE.MeshStandardMaterial({ color: 0x001133 }), // side
+            new THREE.MeshStandardMaterial({ color: 0x001133 }), // side
+            new THREE.MeshStandardMaterial({ map: hoodTexture, emissive: 0xffffff, emissiveIntensity: 0.1 }), // TOP (a.png)
+            new THREE.MeshStandardMaterial({ color: 0x001133 }), // bottom
+            new THREE.MeshStandardMaterial({ color: 0x001133 }), // front
+            new THREE.MeshStandardMaterial({ color: 0x001133 })  // back
+        ];
+
         const hood = new THREE.Mesh(
             new THREE.BoxGeometry(3.5, 0.1, 4),
-            new THREE.MeshStandardMaterial({ color: 0x001133, metalness: 1, roughness: 0.1, emissive: 0x0022ff, emissiveIntensity: 0.2 })
+            hoodMaterials
         );
         hoodGroup.add(hood);
 
+        // Фары
         const lightGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
         const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const l1 = new THREE.Mesh(lightGeo, lightMat); l1.position.set(-1.2, 0.1, -2); hoodGroup.add(l1);
