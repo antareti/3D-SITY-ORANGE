@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Neon Overdrive - Infinite City</title>
+    <title>Neon Overdrive - Mercedes Edition</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
         #ui {
@@ -31,7 +31,7 @@
 <body>
 
     <div id="ui">
-        <b>NEON OVERDRIVE</b>
+        <b>NEON OVERDRIVE: GT</b>
         W, A, S, D — УПРАВЛЕНИЕ<br>
         MOUSE — ОБЗОР<br><br>
         [ КЛИК ДЛЯ ВХОДА В СИСТЕМУ ]
@@ -52,7 +52,6 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 
     <script>
-        // --- КОНФИГУРАЦИЯ ---
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.012);
 
@@ -62,91 +61,95 @@
         renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        // --- ЗАГРУЗКА ТЕКСТУР ---
         const textureLoader = new THREE.TextureLoader();
-        
-        // Текстура зданий
         const bTex = textureLoader.load('1.png', (tex) => {
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
             tex.repeat.set(1, 2);
         });
-
-        // Текстура капота (a.png)
         const hoodTexture = textureLoader.load('a.png');
 
-        // --- ПОСТОБРАБОТКА ---
         const renderScene = new THREE.RenderPass(scene, camera);
-        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
-        
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        // --- ОСВЕЩЕНИЕ ---
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-        // --- МАШИНА (С КАПОТОМ a.png) ---
+        // --- МАШИНА С ПЕРЕДКОМ MERCEDES ---
         const hoodGroup = new THREE.Group();
         
-        // Создаем массив материалов для каждой стороны куба капота
-        // 0: right, 1: left, 2: top (наша картинка), 3: bottom, 4: front, 5: back
-        const hoodMaterials = [
-            new THREE.MeshStandardMaterial({ color: 0x001133 }), // side
-            new THREE.MeshStandardMaterial({ color: 0x001133 }), // side
-            new THREE.MeshStandardMaterial({ map: hoodTexture, emissive: 0xffffff, emissiveIntensity: 0.1 }), // TOP (a.png)
-            new THREE.MeshStandardMaterial({ color: 0x001133 }), // bottom
-            new THREE.MeshStandardMaterial({ color: 0x001133 }), // front
-            new THREE.MeshStandardMaterial({ color: 0x001133 })  // back
+        // Основной корпус капота
+        const hoodMat = [
+            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
+            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
+            new THREE.MeshStandardMaterial({ map: hoodTexture, emissive: 0xffffff, emissiveIntensity: 0.2 }), // Капот a.png
+            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
+            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
+            new THREE.MeshStandardMaterial({ color: 0x050505 })  
         ];
-
-        const hood = new THREE.Mesh(
-            new THREE.BoxGeometry(3.5, 0.1, 4),
-            hoodMaterials
-        );
+        const hood = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 4), hoodMat);
         hoodGroup.add(hood);
 
-        // Фары
-        const lightGeo = new THREE.BoxGeometry(0.8, 0.2, 0.2);
-        const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const l1 = new THREE.Mesh(lightGeo, lightMat); l1.position.set(-1.2, 0.1, -2); hoodGroup.add(l1);
-        const l2 = new THREE.Mesh(lightGeo, lightMat); l2.position.set(1.2, 0.1, -2); hoodGroup.add(l2);
+        // Решетка радиатора (Panamericana style)
+        const grilleGeo = new THREE.BoxGeometry(1.8, 0.6, 0.1);
+        const grilleMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const grille = new THREE.Mesh(grilleGeo, grilleMat);
+        grille.position.set(0, -0.3, -2.05);
+        hoodGroup.add(grille);
 
+        // Вертикальные полоски решетки
+        for(let i = -8; i <= 8; i++) {
+            const bar = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, 0.55, 0.05),
+                new THREE.MeshBasicMaterial({ color: 0x00ffff })
+            );
+            bar.position.set(i * 0.1, -0.3, -2.1);
+            hoodGroup.add(bar);
+        }
+
+        // Фары (L-shape Mercedes)
+        const createHeadlight = (side) => {
+            const headlight = new THREE.Group();
+            const part1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            const part2 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            part2.position.set(side * 0.35, -0.15, 0);
+            headlight.add(part1, part2);
+            headlight.position.set(side * 1.3, -0.1, -2.05);
+            return headlight;
+        };
+        hoodGroup.add(createHeadlight(1));
+        hoodGroup.add(createHeadlight(-1));
+
+        // Свет фар
         const createSpot = (x) => {
-            const s = new THREE.SpotLight(0xffffff, 10, 50, Math.PI/6, 0.5, 1);
-            s.position.set(x, 0.1, -2);
-            s.target.position.set(x, -0.5, -15);
+            const s = new THREE.SpotLight(0xffffff, 15, 60, Math.PI/5, 0.3, 1);
+            s.position.set(x, -0.1, -2.1);
+            s.target.position.set(x, -1, -20);
             hoodGroup.add(s); hoodGroup.add(s.target);
         };
-        createSpot(-1.2); createSpot(1.2);
+        createSpot(-1.3); createSpot(1.3);
 
-        hoodGroup.position.set(0, -0.8, -1.5);
+        hoodGroup.position.set(0, -0.7, -1.2);
         camera.add(hoodGroup);
         scene.add(camera);
 
-        // --- ЗВЕЗДЫ ---
+        // --- ОКРУЖЕНИЕ ---
         const starCoords = [];
         for (let i = 0; i < 3000; i++) starCoords.push((Math.random()-0.5)*1000, Math.random()*500, (Math.random()-0.5)*1000);
         const starGeo = new THREE.BufferGeometry();
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.8 }));
-        scene.add(stars);
+        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 })));
 
-        // --- ГОРОД ---
         const buildings = [];
         const gridSize = 500;
-        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-        
         for (let i = 0; i < 600; i++) {
             const h = Math.random() * 40 + 5;
             const w = Math.random() * 5 + 3;
-            const buildingMat = new THREE.MeshStandardMaterial({
-                map: bTex,
-                color: 0xffffff,
-                emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff,
-                emissiveIntensity: 0.3
-            });
-
-            const building = new THREE.Mesh(boxGeo, buildingMat);
+            const building = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 1, 1),
+                new THREE.MeshStandardMaterial({ map: bTex, emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff, emissiveIntensity: 0.3 })
+            );
             building.scale.set(w, h, w);
             building.position.set((Math.random()-0.5)*gridSize, h/2, (Math.random()-0.5)*gridSize);
             scene.add(building);
@@ -156,7 +159,6 @@
         const grid = new THREE.GridHelper(gridSize * 2, 80, 0x00ffff, 0x330033);
         scene.add(grid);
 
-        // --- ТРАФИК ---
         const tLights = [];
         for(let i=0; i<40; i++) {
             const l = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,5), new THREE.MeshBasicMaterial({color: Math.random()>0.5?0x00ffff:0xff00ff}));
@@ -193,12 +195,11 @@
                 if (moveL) dir.x -= 1; if (moveR) dir.x += 1;
                 dir.normalize().applyQuaternion(camera.quaternion); dir.y = 0;
 
-                if (dir.length() > 0) velocity.addScaledVector(dir, 0.02);
+                if (dir.length() > 0) velocity.addScaledVector(dir, 0.03);
                 velocity.multiplyScalar(0.96);
                 camera.position.add(velocity); camera.position.y = 2;
 
-                let targetTilt = moveL ? 0.08 : (moveR ? -0.08 : 0);
-                camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, targetTilt, 0.1);
+                camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, moveL ? 0.05 : (moveR ? -0.05 : 0), 0.1);
                 spdElem.innerText = `SPD: ${Math.round(velocity.length()*500)} KM/H`;
 
                 buildings.forEach(b => {
@@ -208,10 +209,9 @@
                     if (b.position.z - camera.position.z < -250) b.position.z += 500;
                 });
                 tLights.forEach(l => {
-                    l.position.z += 2; if (l.position.z - camera.position.z > 250) l.position.z -= 500;
+                    l.position.z += 2.5; if (l.position.z - camera.position.z > 250) l.position.z -= 500;
                 });
                 grid.position.set(Math.floor(camera.position.x/10)*10, 0, Math.floor(camera.position.z/10)*10);
-                stars.position.copy(camera.position);
             }
             composer.render();
         }
