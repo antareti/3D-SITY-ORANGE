@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Neon Overdrive - AMG Stealth</title>
+    <title>Neon Overdrive - AMG Gold Edition</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
         #ui {
@@ -32,9 +32,9 @@
 <body>
 
     <div id="ui">
-        <b>NEON OVERDRIVE: STEALTH</b>
+        <b>NEON OVERDRIVE: AMG GOLD</b>
         W, A, S, D — УПРАВЛЕНИЕ<br>
-        РУЛЬ СИНХРОНИЗИРОВАН<br><br>
+        ФАРЫ ВКЛЮЧЕНЫ<br><br>
         [ КЛИК ИЛИ НАЖМИТЕ WASD ]
     </div>
 
@@ -53,7 +53,6 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 
     <script>
-        // --- БАЗОВАЯ СЦЕНА ---
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
@@ -69,28 +68,24 @@
             tex.repeat.set(1, 2);
         });
 
-        // --- ПОСТОБРАБОТКА ---
         const renderScene = new THREE.RenderPass(scene, camera);
-        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2));
 
-        // --- КОНСТРУКЦИЯ МАШИНЫ ---
+        // --- МАШИНА ---
         const carGroup = new THREE.Group();
-        
         const hoodMat = new THREE.MeshStandardMaterial({ 
-            color: 0x0a0a0a, 
-            metalness: 0.9, 
-            roughness: 0.1,
-            emissive: 0x001122,
-            emissiveIntensity: 0.5
+            color: 0x0a0a0a, metalness: 0.9, roughness: 0.1,
+            emissive: 0x001122, emissiveIntensity: 0.5
         });
         const hood = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 4), hoodMat);
         carGroup.add(hood);
 
+        // Решетка
         const grille = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 0.1), new THREE.MeshStandardMaterial({color: 0x111111}));
         grille.position.set(0, -0.3, -2);
         carGroup.add(grille);
@@ -101,6 +96,7 @@
             carGroup.add(bar);
         }
 
+        // Фары (Визуальные объекты)
         const createHeadlight = (side) => {
             const h = new THREE.Group();
             const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
@@ -112,20 +108,32 @@
         };
         carGroup.add(createHeadlight(1), createHeadlight(-1));
 
-        // --- РУЛЬ ---
+        // СВЕТ ФАР (Физический свет в сцену)
+        const createCarLight = (x) => {
+            const spotLight = new THREE.SpotLight(0xffffff, 15, 80, Math.PI/5, 0.3, 1);
+            spotLight.position.set(x, 0, -2.1);
+            const target = new THREE.Object3D();
+            target.position.set(x, -1, -30);
+            carGroup.add(spotLight);
+            carGroup.add(target);
+            spotLight.target = target;
+        };
+        createCarLight(-1.3);
+        createCarLight(1.3);
+
+        // --- ЖЕЛТЫЙ РУЛЬ ---
         const wheelGroup = new THREE.Group();
-        const torusGeo = new THREE.TorusGeometry(0.4, 0.04, 16, 50);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.5 });
-        const wheelRim = new THREE.Mesh(torusGeo, wheelMat);
+        const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffff00, metalness: 0.6, roughness: 0.2 });
+        
+        const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 16, 50), yellowMat);
         wheelGroup.add(wheelRim);
 
-        const spokeGeo = new THREE.BoxGeometry(0.7, 0.06, 0.03);
-        const spoke1 = new THREE.Mesh(spokeGeo, wheelMat);
-        wheelGroup.add(spoke1);
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.03), yellowMat);
+        wheelGroup.add(spoke);
 
-        const spokeCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.05, 12), wheelMat);
-        spokeCenter.rotation.x = Math.PI/2;
-        wheelGroup.add(spokeCenter);
+        const center = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.05, 12), yellowMat);
+        center.rotation.x = Math.PI/2;
+        wheelGroup.add(center);
 
         wheelGroup.position.set(0, 0.1, 0.5);
         wheelGroup.rotation.x = -0.3;
@@ -147,11 +155,10 @@
             b.position.set((Math.random()-0.5)*500, h/2, (Math.random()-0.5)*500);
             scene.add(b); buildings.push(b);
         }
-
         const grid = new THREE.GridHelper(1000, 80, 0x00ffff, 0x220022);
         scene.add(grid);
 
-        // --- ЛОГИКА И СКРЫТИЕ UI ---
+        // --- ЛОГИКА ---
         let move = { fwd: false, bwd: false, l: false, r: false };
         let velocity = new THREE.Vector3(), yaw = 0, pitch = 0, wheelRotation = 0;
         const ui = document.getElementById('ui'), music = document.getElementById('bgMusic');
@@ -164,16 +171,11 @@
         }
 
         ui.addEventListener('click', startEngine);
-
         document.addEventListener('keydown', (e) => {
-            const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
-            if(keys.includes(e.code)) {
-                startEngine(); // Авто-скрытие UI при нажатии кнопок хода
-            }
+            if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)) startEngine();
             if(e.code==='KeyW') move.fwd=true; if(e.code==='KeyS') move.bwd=true;
             if(e.code==='KeyA') move.l=true; if(e.code==='KeyD') move.r=true;
         });
-
         document.addEventListener('keyup', (e) => {
             if(e.code==='KeyW') move.fwd=false; if(e.code==='KeyS') move.bwd=false;
             if(e.code==='KeyA') move.l=false; if(e.code==='KeyD') move.r=false;
@@ -204,15 +206,11 @@
                 camera.position.y = 2;
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
 
-                // Анимация руля
-                let targetWheel = 0;
-                if (move.l) targetWheel = 0.8;
-                if (move.r) targetWheel = -0.8;
+                let targetWheel = move.l ? 0.8 : (move.r ? -0.8 : 0);
                 wheelRotation = THREE.MathUtils.lerp(wheelRotation, targetWheel, 0.1);
                 wheelGroup.rotation.z = wheelRotation;
                 camera.rotation.z = wheelRotation * 0.05;
 
-                // Loop зданий
                 buildings.forEach(b => {
                     if (b.position.z - camera.position.z > 250) b.position.z -= 500;
                     if (b.position.z - camera.position.z < -250) b.position.z += 500;
@@ -224,7 +222,6 @@
             }
             composer.render();
         }
-        
         animate();
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
