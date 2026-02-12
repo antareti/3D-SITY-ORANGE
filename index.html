@@ -18,6 +18,7 @@
             z-index: 100;
             box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
             letter-spacing: 2px;
+            transition: opacity 0.5s;
         }
         #ui b { font-size: 28px; display: block; margin-bottom: 10px; color: #ff00ff; }
         #speedometer {
@@ -31,10 +32,10 @@
 <body>
 
     <div id="ui">
-        <b>NEON OVERDRIVE: STEALH</b>
+        <b>NEON OVERDRIVE: STEALTH</b>
         W, A, S, D — УПРАВЛЕНИЕ<br>
-        РУЛЬ СИНХРОНИЗИРОВАН С КЛАВИШАМИ<br><br>
-        [ КЛИК ДЛЯ ЗАПУСКА ДВИГАТЕЛЯ ]
+        РУЛЬ СИНХРОНИЗИРОВАН<br><br>
+        [ КЛИК ИЛИ НАЖМИТЕ WASD ]
     </div>
 
     <div id="speedometer">SPD: 0 KM/H</div>
@@ -80,7 +81,6 @@
         // --- КОНСТРУКЦИЯ МАШИНЫ ---
         const carGroup = new THREE.Group();
         
-        // Капот (Чистый, без a.png, глянцевый)
         const hoodMat = new THREE.MeshStandardMaterial({ 
             color: 0x0a0a0a, 
             metalness: 0.9, 
@@ -91,7 +91,6 @@
         const hood = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 4), hoodMat);
         carGroup.add(hood);
 
-        // Решетка Mercedes Style
         const grille = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 0.1), new THREE.MeshStandardMaterial({color: 0x111111}));
         grille.position.set(0, -0.3, -2);
         carGroup.add(grille);
@@ -102,7 +101,6 @@
             carGroup.add(bar);
         }
 
-        // Фары
         const createHeadlight = (side) => {
             const h = new THREE.Group();
             const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
@@ -114,34 +112,30 @@
         };
         carGroup.add(createHeadlight(1), createHeadlight(-1));
 
-        // --- РУЛЕВОЕ УПРАВЛЕНИЕ ---
+        // --- РУЛЬ ---
         const wheelGroup = new THREE.Group();
-        
-        // Обод руля
         const torusGeo = new THREE.TorusGeometry(0.4, 0.04, 16, 50);
         const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.5 });
         const wheelRim = new THREE.Mesh(torusGeo, wheelMat);
         wheelGroup.add(wheelRim);
 
-        // Спицы руля
         const spokeGeo = new THREE.BoxGeometry(0.7, 0.06, 0.03);
         const spoke1 = new THREE.Mesh(spokeGeo, wheelMat);
-        wheelGroup.add(spoke1); // Горизонтальная спица
+        wheelGroup.add(spoke1);
 
         const spokeCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.05, 12), wheelMat);
         spokeCenter.rotation.x = Math.PI/2;
         wheelGroup.add(spokeCenter);
 
-        // Позиция руля в салоне
-        wheelGroup.position.set(0, 0.1, 0.5); // Прямо перед камерой
-        wheelGroup.rotation.x = -0.3; // Наклон руля к водителю
+        wheelGroup.position.set(0, 0.1, 0.5);
+        wheelGroup.rotation.x = -0.3;
         carGroup.add(wheelGroup);
 
         carGroup.position.set(0, -0.8, -1.2);
         camera.add(carGroup);
         scene.add(camera);
 
-        // --- ГОРОД И СВЕТ ---
+        // --- ГОРОД ---
         const buildings = [];
         for (let i = 0; i < 600; i++) {
             const h = Math.random() * 40 + 5;
@@ -157,21 +151,36 @@
         const grid = new THREE.GridHelper(1000, 80, 0x00ffff, 0x220022);
         scene.add(grid);
 
-        // --- УПРАВЛЕНИЕ ---
+        // --- ЛОГИКА И СКРЫТИЕ UI ---
         let move = { fwd: false, bwd: false, l: false, r: false };
-        let velocity = new THREE.Vector3(), yaw = 0, pitch = 0;
-        let wheelRotation = 0; // Для плавной анимации руля
-
+        let velocity = new THREE.Vector3(), yaw = 0, pitch = 0, wheelRotation = 0;
         const ui = document.getElementById('ui'), music = document.getElementById('bgMusic');
-        ui.addEventListener('click', () => { document.body.requestPointerLock(); music.play().catch(()=>{}); });
-        
+
+        function startEngine() {
+            if (!document.pointerLockElement) {
+                document.body.requestPointerLock();
+                music.play().catch(()=>{});
+            }
+        }
+
+        ui.addEventListener('click', startEngine);
+
         document.addEventListener('keydown', (e) => {
+            const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD'];
+            if(keys.includes(e.code)) {
+                startEngine(); // Авто-скрытие UI при нажатии кнопок хода
+            }
             if(e.code==='KeyW') move.fwd=true; if(e.code==='KeyS') move.bwd=true;
             if(e.code==='KeyA') move.l=true; if(e.code==='KeyD') move.r=true;
         });
+
         document.addEventListener('keyup', (e) => {
             if(e.code==='KeyW') move.fwd=false; if(e.code==='KeyS') move.bwd=false;
             if(e.code==='KeyA') move.l=false; if(e.code==='KeyD') move.r=false;
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            ui.style.display = document.pointerLockElement ? 'none' : 'block';
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -183,9 +192,7 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            
             if (document.pointerLockElement) {
-                // Движение камеры и машины
                 const dir = new THREE.Vector3();
                 if (move.fwd) dir.z -= 1; if (move.bwd) dir.z += 1;
                 if (move.l) dir.x -= 1; if (move.r) dir.x += 1;
@@ -197,19 +204,15 @@
                 camera.position.y = 2;
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
 
-                // --- АНИМАЦИЯ РУЛЯ ---
+                // Анимация руля
                 let targetWheel = 0;
-                if (move.l) targetWheel = 0.8; // Поворот влево
-                if (move.r) targetWheel = -0.8; // Поворот вправо
-                
-                // Плавный возврат руля и поворот
+                if (move.l) targetWheel = 0.8;
+                if (move.r) targetWheel = -0.8;
                 wheelRotation = THREE.MathUtils.lerp(wheelRotation, targetWheel, 0.1);
                 wheelGroup.rotation.z = wheelRotation;
-
-                // Наклон камеры при повороте
                 camera.rotation.z = wheelRotation * 0.05;
 
-                // Бесконечный город (loop)
+                // Loop зданий
                 buildings.forEach(b => {
                     if (b.position.z - camera.position.z > 250) b.position.z -= 500;
                     if (b.position.z - camera.position.z < -250) b.position.z += 500;
