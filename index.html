@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Neon Overdrive - Mercedes Edition</title>
+    <title>Neon Overdrive - AMG Stealth</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
         #ui {
@@ -31,10 +31,10 @@
 <body>
 
     <div id="ui">
-        <b>NEON OVERDRIVE: GT</b>
+        <b>NEON OVERDRIVE: STEALH</b>
         W, A, S, D — УПРАВЛЕНИЕ<br>
-        MOUSE — ОБЗОР<br><br>
-        [ КЛИК ДЛЯ ВХОДА В СИСТЕМУ ]
+        РУЛЬ СИНХРОНИЗИРОВАН С КЛАВИШАМИ<br><br>
+        [ КЛИК ДЛЯ ЗАПУСКА ДВИГАТЕЛЯ ]
     </div>
 
     <div id="speedometer">SPD: 0 KM/H</div>
@@ -52,8 +52,9 @@
     <script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 
     <script>
+        // --- БАЗОВАЯ СЦЕНА ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.012);
+        scene.fog = new THREE.FogExp2(0x000000, 0.015);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -66,159 +67,165 @@
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
             tex.repeat.set(1, 2);
         });
-        const hoodTexture = textureLoader.load('a.png');
 
+        // --- ПОСТОБРАБОТКА ---
         const renderScene = new THREE.RenderPass(scene, camera);
         const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(renderScene);
         composer.addPass(bloomPass);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
-        // --- МАШИНА С ПЕРЕДКОМ MERCEDES ---
-        const hoodGroup = new THREE.Group();
+        // --- КОНСТРУКЦИЯ МАШИНЫ ---
+        const carGroup = new THREE.Group();
         
-        // Основной корпус капота
-        const hoodMat = [
-            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
-            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
-            new THREE.MeshStandardMaterial({ map: hoodTexture, emissive: 0xffffff, emissiveIntensity: 0.2 }), // Капот a.png
-            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
-            new THREE.MeshStandardMaterial({ color: 0x050505 }), 
-            new THREE.MeshStandardMaterial({ color: 0x050505 })  
-        ];
+        // Капот (Чистый, без a.png, глянцевый)
+        const hoodMat = new THREE.MeshStandardMaterial({ 
+            color: 0x0a0a0a, 
+            metalness: 0.9, 
+            roughness: 0.1,
+            emissive: 0x001122,
+            emissiveIntensity: 0.5
+        });
         const hood = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.2, 4), hoodMat);
-        hoodGroup.add(hood);
+        carGroup.add(hood);
 
-        // Решетка радиатора (Panamericana style)
-        const grilleGeo = new THREE.BoxGeometry(1.8, 0.6, 0.1);
-        const grilleMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-        const grille = new THREE.Mesh(grilleGeo, grilleMat);
-        grille.position.set(0, -0.3, -2.05);
-        hoodGroup.add(grille);
+        // Решетка Mercedes Style
+        const grille = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 0.1), new THREE.MeshStandardMaterial({color: 0x111111}));
+        grille.position.set(0, -0.3, -2);
+        carGroup.add(grille);
 
-        // Вертикальные полоски решетки
         for(let i = -8; i <= 8; i++) {
-            const bar = new THREE.Mesh(
-                new THREE.BoxGeometry(0.03, 0.55, 0.05),
-                new THREE.MeshBasicMaterial({ color: 0x00ffff })
-            );
-            bar.position.set(i * 0.1, -0.3, -2.1);
-            hoodGroup.add(bar);
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.05), new THREE.MeshBasicMaterial({color: 0x00ffff}));
+            bar.position.set(i * 0.1, -0.3, -2.05);
+            carGroup.add(bar);
         }
 
-        // Фары (L-shape Mercedes)
+        // Фары
         const createHeadlight = (side) => {
-            const headlight = new THREE.Group();
-            const part1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            const part2 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-            part2.position.set(side * 0.35, -0.15, 0);
-            headlight.add(part1, part2);
-            headlight.position.set(side * 1.3, -0.1, -2.05);
-            return headlight;
+            const h = new THREE.Group();
+            const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            p2.position.set(side * 0.3, -0.1, 0);
+            h.add(p1, p2);
+            h.position.set(side * 1.3, -0.1, -2);
+            return h;
         };
-        hoodGroup.add(createHeadlight(1));
-        hoodGroup.add(createHeadlight(-1));
+        carGroup.add(createHeadlight(1), createHeadlight(-1));
 
-        // Свет фар
-        const createSpot = (x) => {
-            const s = new THREE.SpotLight(0xffffff, 15, 60, Math.PI/5, 0.3, 1);
-            s.position.set(x, -0.1, -2.1);
-            s.target.position.set(x, -1, -20);
-            hoodGroup.add(s); hoodGroup.add(s.target);
-        };
-        createSpot(-1.3); createSpot(1.3);
+        // --- РУЛЕВОЕ УПРАВЛЕНИЕ ---
+        const wheelGroup = new THREE.Group();
+        
+        // Обод руля
+        const torusGeo = new THREE.TorusGeometry(0.4, 0.04, 16, 50);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.5 });
+        const wheelRim = new THREE.Mesh(torusGeo, wheelMat);
+        wheelGroup.add(wheelRim);
 
-        hoodGroup.position.set(0, -0.7, -1.2);
-        camera.add(hoodGroup);
+        // Спицы руля
+        const spokeGeo = new THREE.BoxGeometry(0.7, 0.06, 0.03);
+        const spoke1 = new THREE.Mesh(spokeGeo, wheelMat);
+        wheelGroup.add(spoke1); // Горизонтальная спица
+
+        const spokeCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.05, 12), wheelMat);
+        spokeCenter.rotation.x = Math.PI/2;
+        wheelGroup.add(spokeCenter);
+
+        // Позиция руля в салоне
+        wheelGroup.position.set(0, 0.1, 0.5); // Прямо перед камерой
+        wheelGroup.rotation.x = -0.3; // Наклон руля к водителю
+        carGroup.add(wheelGroup);
+
+        carGroup.position.set(0, -0.8, -1.2);
+        camera.add(carGroup);
         scene.add(camera);
 
-        // --- ОКРУЖЕНИЕ ---
-        const starCoords = [];
-        for (let i = 0; i < 3000; i++) starCoords.push((Math.random()-0.5)*1000, Math.random()*500, (Math.random()-0.5)*1000);
-        const starGeo = new THREE.BufferGeometry();
-        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-        scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 })));
-
+        // --- ГОРОД И СВЕТ ---
         const buildings = [];
-        const gridSize = 500;
         for (let i = 0; i < 600; i++) {
             const h = Math.random() * 40 + 5;
-            const w = Math.random() * 5 + 3;
-            const building = new THREE.Mesh(
+            const b = new THREE.Mesh(
                 new THREE.BoxGeometry(1, 1, 1),
                 new THREE.MeshStandardMaterial({ map: bTex, emissive: Math.random() > 0.5 ? 0x00ffff : 0xff00ff, emissiveIntensity: 0.3 })
             );
-            building.scale.set(w, h, w);
-            building.position.set((Math.random()-0.5)*gridSize, h/2, (Math.random()-0.5)*gridSize);
-            scene.add(building);
-            buildings.push(building);
+            b.scale.set(Math.random()*5+3, h, Math.random()*5+3);
+            b.position.set((Math.random()-0.5)*500, h/2, (Math.random()-0.5)*500);
+            scene.add(b); buildings.push(b);
         }
 
-        const grid = new THREE.GridHelper(gridSize * 2, 80, 0x00ffff, 0x330033);
+        const grid = new THREE.GridHelper(1000, 80, 0x00ffff, 0x220022);
         scene.add(grid);
 
-        const tLights = [];
-        for(let i=0; i<40; i++) {
-            const l = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,5), new THREE.MeshBasicMaterial({color: Math.random()>0.5?0x00ffff:0xff00ff}));
-            l.position.set((Math.random()-0.5)*100, 1, (Math.random()-0.5)*gridSize);
-            scene.add(l); tLights.push(l);
-        }
+        // --- УПРАВЛЕНИЕ ---
+        let move = { fwd: false, bwd: false, l: false, r: false };
+        let velocity = new THREE.Vector3(), yaw = 0, pitch = 0;
+        let wheelRotation = 0; // Для плавной анимации руля
 
-        // --- ЛОГИКА ---
-        let moveFwd = false, moveBwd = false, moveL = false, moveR = false;
-        let yaw = 0, pitch = 0, velocity = new THREE.Vector3();
-        const ui = document.getElementById('ui'), spdElem = document.getElementById('speedometer'), music = document.getElementById('bgMusic');
-
+        const ui = document.getElementById('ui'), music = document.getElementById('bgMusic');
         ui.addEventListener('click', () => { document.body.requestPointerLock(); music.play().catch(()=>{}); });
-        document.addEventListener('pointerlockchange', () => ui.style.display = document.pointerLockElement ? 'none' : 'block');
+        
+        document.addEventListener('keydown', (e) => {
+            if(e.code==='KeyW') move.fwd=true; if(e.code==='KeyS') move.bwd=true;
+            if(e.code==='KeyA') move.l=true; if(e.code==='KeyD') move.r=true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if(e.code==='KeyW') move.fwd=false; if(e.code==='KeyS') move.bwd=false;
+            if(e.code==='KeyA') move.l=false; if(e.code==='KeyD') move.r=false;
+        });
+
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement) {
-                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
-                pitch = Math.max(-Math.PI/4, Math.min(Math.PI/4, pitch));
+                yaw -= e.movementX * 0.0015;
+                pitch = Math.max(-0.4, Math.min(0.4, pitch - e.movementY * 0.0015));
             }
         });
 
-        const onKey = (v) => (e) => {
-            if (e.code==='KeyW') moveFwd=v; if (e.code==='KeyS') moveBwd=v;
-            if (e.code==='KeyA') moveL=v; if (e.code==='KeyD') moveR=v;
-        };
-        document.addEventListener('keydown', onKey(true)); document.addEventListener('keyup', onKey(false));
-
         function animate() {
             requestAnimationFrame(animate);
+            
             if (document.pointerLockElement) {
-                camera.rotation.set(pitch, yaw, 0, 'YXZ');
+                // Движение камеры и машины
                 const dir = new THREE.Vector3();
-                if (moveFwd) dir.z -= 1; if (moveBwd) dir.z += 1;
-                if (moveL) dir.x -= 1; if (moveR) dir.x += 1;
+                if (move.fwd) dir.z -= 1; if (move.bwd) dir.z += 1;
+                if (move.l) dir.x -= 1; if (move.r) dir.x += 1;
                 dir.normalize().applyQuaternion(camera.quaternion); dir.y = 0;
 
-                if (dir.length() > 0) velocity.addScaledVector(dir, 0.03);
-                velocity.multiplyScalar(0.96);
-                camera.position.add(velocity); camera.position.y = 2;
+                if (dir.length() > 0) velocity.addScaledVector(dir, 0.04);
+                velocity.multiplyScalar(0.95);
+                camera.position.add(velocity);
+                camera.position.y = 2;
+                camera.rotation.set(pitch, yaw, 0, 'YXZ');
 
-                camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, moveL ? 0.05 : (moveR ? -0.05 : 0), 0.1);
-                spdElem.innerText = `SPD: ${Math.round(velocity.length()*500)} KM/H`;
+                // --- АНИМАЦИЯ РУЛЯ ---
+                let targetWheel = 0;
+                if (move.l) targetWheel = 0.8; // Поворот влево
+                if (move.r) targetWheel = -0.8; // Поворот вправо
+                
+                // Плавный возврат руля и поворот
+                wheelRotation = THREE.MathUtils.lerp(wheelRotation, targetWheel, 0.1);
+                wheelGroup.rotation.z = wheelRotation;
 
+                // Наклон камеры при повороте
+                camera.rotation.z = wheelRotation * 0.05;
+
+                // Бесконечный город (loop)
                 buildings.forEach(b => {
-                    if (b.position.x - camera.position.x > 250) b.position.x -= 500;
-                    if (b.position.x - camera.position.x < -250) b.position.x += 500;
                     if (b.position.z - camera.position.z > 250) b.position.z -= 500;
                     if (b.position.z - camera.position.z < -250) b.position.z += 500;
+                    if (b.position.x - camera.position.x > 250) b.position.x -= 500;
+                    if (b.position.x - camera.position.x < -250) b.position.x += 500;
                 });
-                tLights.forEach(l => {
-                    l.position.z += 2.5; if (l.position.z - camera.position.z > 250) l.position.z -= 500;
-                });
-                grid.position.set(Math.floor(camera.position.x/10)*10, 0, Math.floor(camera.position.z/10)*10);
+                grid.position.set(camera.position.x, 0, camera.position.z);
+                document.getElementById('speedometer').innerText = `SPD: ${Math.round(velocity.length()*450)} KM/H`;
             }
             composer.render();
         }
+        
         animate();
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>
